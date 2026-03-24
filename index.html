@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Biocon — Portal del Paciente</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary: #1B4F72; --primary-light: #2E86AB;
+      --bg: #F0F4F8; --white: #FFFFFF;
+      --text: #1A202C; --text2: #718096; --text3: #A0AEC0;
+      --border: #E2E8F0;
+      --ok: #16A34A; --ok-bg: #F0FDF4;
+      --warn: #D97706; --warn-bg: #FFFBEB;
+      --err: #DC2626; --err-bg: #FEF2F2;
+      --sidebar: 240px;
+    }
+    body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
+
+    /* LOGIN */
+    #login-screen { min-height:100vh; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#1B4F72,#2E86AB); padding:24px; }
+    .login-card { background:white; border-radius:20px; padding:48px 40px; width:100%; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,.18); }
+    .login-logo { text-align:center; margin-bottom:32px; }
+    .login-logo-name { font-size:34px; font-weight:800; color:var(--primary); letter-spacing:-1px; }
+    .login-logo-sub { font-size:11px; color:var(--text3); font-weight:500; letter-spacing:2px; text-transform:uppercase; margin-top:2px; }
+    .login-title { font-size:22px; font-weight:700; text-align:center; margin-bottom:6px; }
+    .login-sub { font-size:14px; color:var(--text2); text-align:center; margin-bottom:28px; }
+    .f-label { display:block; font-size:13px; font-weight:600; margin-bottom:6px; margin-top:14px; }
+    .f-input { width:100%; padding:12px 14px; border:1.5px solid var(--border); border-radius:10px; font-size:15px; font-family:inherit; color:var(--text); background:white; transition:border .2s,box-shadow .2s; }
+    .f-input:focus { outline:none; border-color:var(--primary-light); box-shadow:0 0 0 3px rgba(46,134,171,.1); }
+    .btn-primary { width:100%; padding:14px; background:var(--primary); color:white; border:none; border-radius:10px; font-size:15px; font-weight:600; font-family:inherit; cursor:pointer; margin-top:18px; transition:filter .15s; }
+    .btn-primary:hover { filter:brightness(1.1); }
+    .login-hint { text-align:center; font-size:12px; color:var(--text3); margin-top:14px; }
+    .login-err { color:var(--err); font-size:13px; text-align:center; margin-top:8px; min-height:18px; }
+
+    /* APP */
+    #app { display:none; min-height:100vh; }
+    #app.on { display:flex; }
+
+    /* SIDEBAR */
+    #sidebar { width:var(--sidebar); background:var(--primary); min-height:100vh; display:flex; flex-direction:column; position:fixed; left:0; top:0; bottom:0; z-index:100; }
+    .sb-logo { padding:26px 24px 18px; border-bottom:1px solid rgba(255,255,255,.08); }
+    .sb-logo-name { font-size:22px; font-weight:800; color:white; letter-spacing:-.5px; }
+    .sb-logo-sub { font-size:10px; color:rgba(255,255,255,.45); font-weight:500; letter-spacing:2px; text-transform:uppercase; margin-top:2px; }
+    .sb-nav { flex:1; padding:14px 10px; display:flex; flex-direction:column; gap:2px; }
+    .nav-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; cursor:pointer; color:rgba(255,255,255,.55); font-size:14px; font-weight:500; transition:all .15s; }
+    .nav-item:hover { background:rgba(255,255,255,.06); color:rgba(255,255,255,.85); }
+    .nav-item.active { background:rgba(255,255,255,.13); color:white; font-weight:600; }
+    .nav-icon { font-size:16px; width:20px; text-align:center; }
+    .sb-bottom { padding:14px 10px; border-top:1px solid rgba(255,255,255,.08); }
+    .sb-user { display:flex; align-items:center; gap:10px; padding:8px 12px; }
+    .sb-avatar { width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,.15); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:white; flex-shrink:0; }
+    .sb-uname { font-size:13px; font-weight:600; color:white; }
+    .sb-udni { font-size:11px; color:rgba(255,255,255,.4); }
+    .btn-logout { width:100%; padding:9px; background:rgba(255,255,255,.07); color:rgba(255,255,255,.55); border:none; border-radius:8px; font-size:13px; font-weight:500; font-family:inherit; cursor:pointer; margin-top:8px; transition:all .15s; }
+    .btn-logout:hover { background:rgba(255,255,255,.13); color:white; }
+
+    /* MAIN */
+    #main { margin-left:var(--sidebar); flex:1; min-height:100vh; overflow-y:auto; }
+    .view { display:none; padding:36px 40px; max-width:1200px; }
+    .view.on { display:block; }
+
+    /* SHARED */
+    .page-hdr { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:26px; flex-wrap:wrap; gap:12px; }
+    .page-title { font-size:26px; font-weight:700; color:var(--text); letter-spacing:-.4px; }
+    .page-sub { font-size:14px; color:var(--text2); margin-top:4px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .card { background:white; border-radius:16px; padding:24px; box-shadow:0 1px 8px rgba(0,0,0,.06); border:1px solid #F0F0F0; }
+    .card-title { font-size:15px; font-weight:700; color:var(--text); margin-bottom:18px; }
+    .badge { padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; display:inline-block; }
+    .b-ok { background:var(--ok-bg); color:var(--ok); }
+    .b-warn { background:var(--warn-bg); color:var(--warn); }
+    .b-err { background:var(--err-bg); color:var(--err); }
+    .b-blue { background:#EBF8FF; color:#2B6CB0; }
+    .btn-act { padding:10px 20px; background:var(--primary); color:white; border:none; border-radius:10px; font-size:14px; font-weight:600; font-family:inherit; cursor:pointer; transition:filter .15s; flex-shrink:0; }
+    .btn-act:hover { filter:brightness(1.1); }
+    .btn-sec { padding:9px 16px; background:var(--bg); color:var(--primary); border:1.5px solid var(--border); border-radius:9px; font-size:13px; font-weight:600; font-family:inherit; cursor:pointer; transition:all .15s; }
+    .btn-sec:hover { background:var(--border); }
+
+    /* ALERT BANNER */
+    .alert-ban { display:flex; gap:14px; align-items:center; background:var(--warn-bg); border:1px solid #FDE68A; border-radius:12px; padding:14px 18px; margin-bottom:24px; }
+    .alert-ttl { font-weight:600; font-size:14px; color:#92400E; margin-bottom:2px; }
+    .alert-txt { font-size:13px; color:#78350F; }
+    .alert-lnk { color:var(--warn); font-weight:600; cursor:pointer; text-decoration:underline; }
+
+    /* KPI */
+    .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:22px; }
+    .kpi-card { background:white; border-radius:16px; padding:20px; box-shadow:0 1px 8px rgba(0,0,0,.06); border:1px solid #F0F0F0; }
+    .kpi-hdr { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; gap:6px; }
+    .kpi-name { font-size:13px; color:var(--text2); font-weight:500; }
+    .kpi-val { font-size:28px; font-weight:700; color:var(--text); letter-spacing:-.5px; line-height:1.2; margin-bottom:4px; }
+    .kpi-unit { font-size:14px; font-weight:400; color:var(--text2); }
+    .kpi-diff { font-size:12px; font-weight:500; margin-bottom:5px; }
+    .kpi-ref { font-size:11px; color:var(--text3); }
+
+    /* BOTTOM ROW */
+    .bot-row { display:grid; grid-template-columns:1fr 360px; gap:20px; }
+    .hist-list { display:flex; flex-direction:column; gap:3px; }
+    .hist-item { display:flex; align-items:center; gap:14px; padding:11px 12px; border-radius:10px; cursor:pointer; transition:background .15s; }
+    .hist-item:hover { background:var(--bg); }
+    .hist-dot { width:8px; height:8px; border-radius:50%; background:var(--primary-light); flex-shrink:0; }
+    .hist-pkg { font-size:14px; font-weight:600; color:var(--text); margin-bottom:2px; }
+    .hist-date { font-size:12px; color:var(--text2); }
+    .act-list { display:flex; flex-direction:column; gap:3px; }
+    .act-item { display:flex; align-items:center; gap:12px; padding:11px 10px; border-radius:10px; cursor:pointer; transition:background .15s; }
+    .act-item:hover { background:var(--bg); }
+    .act-ico { font-size:18px; width:38px; height:38px; background:var(--bg); border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .act-title { font-size:14px; font-weight:600; color:var(--text); margin-bottom:1px; }
+    .act-desc { font-size:12px; color:var(--text2); }
+    .act-arr { margin-left:auto; color:var(--text3); font-size:20px; }
+
+    /* ANALISIS LIST */
+    .chart-wrap { position:relative; height:280px; margin-bottom:0; }
+    .study-card { background:white; border-radius:14px; padding:20px 24px; box-shadow:0 1px 6px rgba(0,0,0,.06); border:1px solid #F0F0F0; cursor:pointer; transition:all .15s; margin-bottom:12px; display:flex; align-items:center; gap:20px; }
+    .study-card:hover { box-shadow:0 4px 16px rgba(0,0,0,.1); transform:translateY(-1px); }
+    .study-date { text-align:center; min-width:60px; }
+    .s-day { font-size:28px; font-weight:700; color:var(--primary); line-height:1; }
+    .s-mon { font-size:11px; font-weight:600; color:var(--text2); text-transform:uppercase; letter-spacing:.5px; }
+    .s-yr { font-size:11px; color:var(--text3); }
+    .s-div { width:1px; height:48px; background:var(--border); flex-shrink:0; }
+    .s-info { flex:1; }
+    .s-name { font-size:16px; font-weight:700; color:var(--text); margin-bottom:4px; }
+    .s-proto { font-size:12px; color:var(--text3); }
+    .s-tags { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+
+    /* DETALLE */
+    .back-btn { display:flex; align-items:center; gap:6px; font-size:14px; color:var(--primary-light); font-weight:600; cursor:pointer; margin-bottom:22px; }
+    .back-btn:hover { text-decoration:underline; }
+    .res-card { background:white; border-radius:12px; padding:18px 20px; box-shadow:0 1px 4px rgba(0,0,0,.05); border:1px solid #F0F0F0; margin-bottom:10px; }
+    .res-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px; }
+    .res-name { font-size:15px; font-weight:600; color:var(--text); }
+    .res-val-box { display:flex; align-items:baseline; gap:6px; }
+    .res-val { font-size:22px; font-weight:700; color:var(--text); }
+    .res-unit { font-size:13px; color:var(--text2); }
+    .ref-bar { position:relative; height:8px; background:var(--bg); border-radius:4px; margin:8px 0 4px; }
+    .ref-range { position:absolute; height:100%; background:#DBEAFE; border-radius:4px; }
+    .ref-marker { position:absolute; width:14px; height:14px; border-radius:50%; top:-3px; transform:translateX(-50%); border:2.5px solid white; box-shadow:0 1px 4px rgba(0,0,0,.2); }
+    .ref-labels { display:flex; justify-content:space-between; font-size:11px; color:var(--text3); }
+    .res-desc { font-size:13px; color:var(--text2); line-height:1.55; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+    .res-qual { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+
+    /* CHAT */
+    .chat-wrap { height:calc(100vh - 180px); min-height:420px; display:flex; flex-direction:column; background:white; border-radius:16px; box-shadow:0 1px 8px rgba(0,0,0,.06); border:1px solid #F0F0F0; overflow:hidden; }
+    .chat-hdr { padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+    .chat-av { width:36px; height:36px; background:linear-gradient(135deg,var(--primary),var(--primary-light)); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; }
+    .chat-nm { font-weight:600; font-size:14px; }
+    .chat-st { font-size:12px; color:var(--ok); }
+    .chat-disc { background:#F8FAFC; border-bottom:1px solid var(--border); padding:8px 20px; font-size:12px; color:var(--text3); text-align:center; }
+    .chat-msgs { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:14px; }
+    .msg { display:flex; gap:10px; max-width:82%; }
+    .msg.user { align-self:flex-end; flex-direction:row-reverse; }
+    .msg.bot { align-self:flex-start; }
+    .msg-av { width:30px; height:30px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; }
+    .msg.bot .msg-av { background:linear-gradient(135deg,var(--primary),var(--primary-light)); color:white; }
+    .msg.user .msg-av { background:var(--bg); color:var(--primary); }
+    .msg-bbl { padding:11px 15px; border-radius:16px; font-size:14px; line-height:1.5; }
+    .msg.bot .msg-bbl { background:var(--bg); color:var(--text); border-radius:4px 16px 16px 16px; }
+    .msg.user .msg-bbl { background:var(--primary); color:white; border-radius:16px 4px 16px 16px; }
+    .msg-time { font-size:11px; color:var(--text3); margin-top:3px; }
+    .msg.user .msg-time { text-align:right; }
+    .chat-sugg { display:flex; gap:8px; flex-wrap:wrap; padding:0 20px 10px; }
+    .sugg-chip { padding:6px 12px; background:#EBF8FF; color:#2B6CB0; border:1px solid #BEE3F8; border-radius:20px; font-size:12px; font-weight:500; cursor:pointer; transition:background .15s; }
+    .sugg-chip:hover { background:#BEE3F8; }
+    .chat-inp-area { padding:14px 20px; border-top:1px solid var(--border); display:flex; gap:10px; }
+    .chat-inp { flex:1; padding:11px 14px; border:1.5px solid var(--border); border-radius:10px; font-size:14px; font-family:inherit; color:var(--text); }
+    .chat-inp:focus { outline:none; border-color:var(--primary-light); }
+    .chat-send { width:44px; height:44px; background:var(--primary); border:none; border-radius:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:18px; color:white; flex-shrink:0; transition:filter .15s; }
+    .chat-send:hover { filter:brightness(1.1); }
+    .typing-dots { display:flex; gap:4px; align-items:center; padding:4px 0; }
+    .t-dot { width:8px; height:8px; background:var(--text3); border-radius:50%; animation:tbounce 1.2s infinite; }
+    .t-dot:nth-child(2) { animation-delay:.2s; }
+    .t-dot:nth-child(3) { animation-delay:.4s; }
+    @keyframes tbounce { 0%,80%,100%{transform:scale(.8);opacity:.4} 40%{transform:scale(1.1);opacity:1} }
+
+    /* PACKS */
+    .packs-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+    .pack-card { background:white; border-radius:16px; padding:24px; box-shadow:0 1px 8px rgba(0,0,0,.06); border:1px solid #F0F0F0; position:relative; transition:all .15s; }
+    .pack-card:hover { box-shadow:0 6px 20px rgba(0,0,0,.1); transform:translateY(-2px); }
+    .pack-pop { position:absolute; top:-10px; right:20px; background:var(--warn); color:white; font-size:11px; font-weight:700; padding:3px 12px; border-radius:20px; }
+    .pack-ico { font-size:30px; margin-bottom:12px; }
+    .pack-name { font-size:17px; font-weight:700; margin-bottom:6px; }
+    .pack-desc { font-size:13px; color:var(--text2); line-height:1.5; margin-bottom:14px; }
+    .pack-items { list-style:none; margin-bottom:18px; display:flex; flex-direction:column; gap:5px; }
+    .pack-items li { font-size:12px; color:var(--text2); display:flex; align-items:center; gap:6px; }
+    .pack-items li::before { content:'✓'; color:var(--ok); font-weight:700; font-size:11px; }
+    .pack-foot { display:flex; justify-content:space-between; align-items:center; }
+    .pack-price { font-size:18px; font-weight:700; color:var(--primary); }
+    .pack-dur { font-size:11px; color:var(--text3); margin-top:2px; }
+    .btn-pack { padding:9px 18px; background:var(--primary); color:white; border:none; border-radius:8px; font-size:13px; font-weight:600; font-family:inherit; cursor:pointer; transition:filter .15s; }
+    .btn-pack:hover { filter:brightness(1.1); }
+
+    /* PLAN */
+    .plan-grid { display:grid; grid-template-columns:360px 1fr; gap:24px; align-items:flex-start; }
+    .p-label { display:block; font-size:13px; font-weight:600; margin-bottom:6px; margin-top:14px; }
+    .p-label:first-child { margin-top:0; }
+    .p-sel, .p-ta { width:100%; padding:10px 14px; border:1.5px solid var(--border); border-radius:10px; font-size:14px; font-family:inherit; color:var(--text); background:white; }
+    .p-sel:focus, .p-ta:focus { outline:none; border-color:var(--primary-light); }
+    .p-ta { min-height:80px; resize:vertical; }
+    .plan-result { display:none; }
+    .plan-result.on { display:block; }
+    .plan-sec { margin-bottom:20px; }
+    .plan-sec-title { font-size:14px; font-weight:700; color:var(--primary); margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+    .plan-row { display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); font-size:14px; }
+    .plan-row:last-child { border-bottom:none; }
+    .plan-lbl { font-weight:600; min-width:110px; color:var(--text2); font-size:13px; flex-shrink:0; }
+
+    /* MODAL */
+    .modal-ov { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:200; display:none; align-items:center; justify-content:center; }
+    .modal-ov.on { display:flex; }
+    .modal-box { background:white; border-radius:20px; padding:36px; max-width:440px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,.15); }
+    .modal-ico { font-size:40px; text-align:center; margin-bottom:14px; }
+    .modal-ttl { font-size:20px; font-weight:700; text-align:center; margin-bottom:8px; }
+    .modal-txt { font-size:14px; color:var(--text2); text-align:center; line-height:1.6; margin-bottom:22px; }
+    .modal-acts { display:flex; gap:10px; }
+    .modal-acts button { flex:1; }
+
+    /* TOAST */
+    #toast { position:fixed; bottom:28px; right:28px; background:var(--text); color:white; padding:13px 20px; border-radius:12px; font-size:14px; font-weight:500; box-shadow:0 4px 20px rgba(0,0,0,.15); transform:translateY(80px); opacity:0; transition:all .3s; z-index:300; max-width:320px; }
+    #toast.on { transform:translateY(0); opacity:1; }
+
+    @media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.bot-row{grid-template-columns:1fr}.packs-grid{grid-template-columns:repeat(2,1fr)}.plan-grid{grid-template-columns:1fr}}
+    @media(max-width:600px){#sidebar{display:none}#main{margin-left:0}.view{padding:20px}.packs-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-name">Biocon</div>
+      <div class="login-logo-sub">Laboratorio Bioquímico</div>
+    </div>
+    <h2 class="login-title">Accedé a tu portal</h2>
+    <p class="login-sub">Consultá tus análisis, resultados y más.</p>
+    <label class="f-label">DNI</label>
+    <input id="inp-dni" class="f-input" type="text" placeholder="Ej: 30456789" />
+    <label class="f-label">Contraseña</label>
+    <input id="inp-pass" class="f-input" type="password" placeholder="Tu contraseña" />
+    <div class="login-err" id="login-err"></div>
+    <button class="btn-primary" onclick="doLogin()">Ingresar</button>
+    <p class="login-hint">Demo: DNI 30456789 · contraseña: biocon</p>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div id="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-name">Biocon</div>
+      <div class="sb-logo-sub">Portal del Paciente</div>
+    </div>
+    <nav class="sb-nav">
+      <div class="nav-item active" id="nav-dashboard" onclick="go('dashboard')"><span class="nav-icon">🏠</span> Inicio</div>
+      <div class="nav-item" id="nav-analisis" onclick="go('analisis')"><span class="nav-icon">📋</span> Mis análisis</div>
+      <div class="nav-item" id="nav-chat" onclick="go('chat')"><span class="nav-icon">💬</span> Consultar IA</div>
+      <div class="nav-item" id="nav-packs" onclick="go('packs')"><span class="nav-icon">🛒</span> Solicitar análisis</div>
+      <div class="nav-item" id="nav-plan" onclick="go('plan')"><span class="nav-icon">🥗</span> Mi plan de salud</div>
+    </nav>
+    <div class="sb-bottom">
+      <div class="sb-user">
+        <div class="sb-avatar">MR</div>
+        <div>
+          <div class="sb-uname">Martín R.</div>
+          <div class="sb-udni">DNI 30456789</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">Cerrar sesión</button>
+    </div>
+  </div>
+
+  <div id="main">
+
+    <!-- DASHBOARD -->
+    <div class="view on" id="view-dashboard">
+      <div class="page-hdr">
+        <div>
+          <h1 class="page-title" id="greeting">Buenos días, Martín</h1>
+          <p class="page-sub">
+            Último análisis: <strong style="color:var(--primary)">18 de febrero de 2026</strong>
+            <span class="badge b-blue">Hemograma + Perfil Lipídico</span>
+          </p>
+        </div>
+        <button class="btn-act" onclick="go('analisis')">Ver todos los análisis</button>
+      </div>
+      <div class="alert-ban">
+        <div style="font-size:20px">⚠️</div>
+        <div>
+          <div class="alert-ttl">1 valor requiere atención</div>
+          <div class="alert-txt">Glucosa — <span class="alert-lnk" onclick="go('detalle',3)">Ver detalle</span></div>
+        </div>
+      </div>
+      <div class="kpi-grid" id="kpi-grid"></div>
+      <div class="bot-row">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div class="card-title" style="margin:0">Historial de análisis</div>
+            <span style="font-size:13px;color:var(--primary-light);font-weight:600;cursor:pointer" onclick="go('analisis')">Ver todos →</span>
+          </div>
+          <div class="hist-list" id="hist-list"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Acciones rápidas</div>
+          <div class="act-list">
+            <div class="act-item" onclick="go('analisis')"><div class="act-ico">📈</div><div><div class="act-title">Ver evolución</div><div class="act-desc">Compará tus valores en el tiempo</div></div><div class="act-arr">›</div></div>
+            <div class="act-item" onclick="go('chat')"><div class="act-ico">💬</div><div><div class="act-title">Consultar IA</div><div class="act-desc">Preguntá sobre tus resultados</div></div><div class="act-arr">›</div></div>
+            <div class="act-item" onclick="go('packs')"><div class="act-ico">🛒</div><div><div class="act-title">Solicitar análisis</div><div class="act-desc">Conocé nuestros packs disponibles</div></div><div class="act-arr">›</div></div>
+            <div class="act-item" onclick="go('plan')"><div class="act-ico">🥗</div><div><div class="act-title">Mi plan de salud</div><div class="act-desc">Dieta y entrenamiento personalizados</div></div><div class="act-arr">›</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANALISIS -->
+    <div class="view" id="view-analisis">
+      <div class="page-hdr">
+        <div>
+          <h1 class="page-title">Mis análisis</h1>
+          <p class="page-sub">3 estudios registrados</p>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:22px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <div class="card-title" style="margin:0">Evolución de valores clave</div>
+          <select id="metric-sel" class="p-sel" style="width:auto;padding:7px 12px;font-size:13px;" onchange="updateChart()">
+            <option value="Glucosa">Glucosa</option>
+            <option value="Colesterol Total">Colesterol Total</option>
+            <option value="Triglicéridos">Triglicéridos</option>
+            <option value="Hemoglobina">Hemoglobina</option>
+            <option value="Colesterol LDL">Colesterol LDL</option>
+          </select>
+        </div>
+        <div class="chart-wrap"><canvas id="evo-chart"></canvas></div>
+      </div>
+      <div id="studies-list"></div>
+    </div>
+
+    <!-- DETALLE -->
+    <div class="view" id="view-detalle">
+      <div class="back-btn" onclick="go('analisis')">← Volver a mis análisis</div>
+      <div id="detalle-content"></div>
+    </div>
+
+    <!-- CHAT -->
+    <div class="view" id="view-chat">
+      <div class="page-hdr">
+        <div>
+          <h1 class="page-title">Consultar IA</h1>
+          <p class="page-sub">Preguntá sobre tus resultados y tu salud</p>
+        </div>
+      </div>
+      <div class="chat-wrap">
+        <div class="chat-hdr">
+          <div class="chat-av">🤖</div>
+          <div><div class="chat-nm">Asistente Biocon</div><div class="chat-st">● En línea</div></div>
+        </div>
+        <div class="chat-disc">Este asistente es orientativo. No reemplaza la consulta con tu médico.</div>
+        <div class="chat-msgs" id="chat-msgs"></div>
+        <div class="chat-sugg" id="chat-sugg">
+          <span class="sugg-chip" onclick="sendSugg('¿Qué significa que mi glucosa está alta?')">¿Glucosa alta?</span>
+          <span class="sugg-chip" onclick="sendSugg('¿Cómo mejorar mi colesterol?')">Mejorar colesterol</span>
+          <span class="sugg-chip" onclick="sendSugg('¿Cuándo debo repetir mis análisis?')">¿Cuándo repetir?</span>
+          <span class="sugg-chip" onclick="sendSugg('¿Qué dieta me recomendás?')">Dieta recomendada</span>
+        </div>
+        <div class="chat-inp-area">
+          <input id="chat-inp" class="chat-inp" type="text" placeholder="Escribí tu consulta..." onkeydown="if(event.key==='Enter')sendChat()" />
+          <button class="chat-send" onclick="sendChat()">➤</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PACKS -->
+    <div class="view" id="view-packs">
+      <div class="page-hdr">
+        <div>
+          <h1 class="page-title">Solicitar análisis</h1>
+          <p class="page-sub">Elegí el pack que mejor se adapta a tus necesidades</p>
+        </div>
+      </div>
+      <div class="packs-grid" id="packs-grid"></div>
+    </div>
+
+    <!-- PLAN -->
+    <div class="view" id="view-plan">
+      <div class="page-hdr">
+        <div>
+          <h1 class="page-title">Mi plan de salud</h1>
+          <p class="page-sub">Dieta y entrenamiento personalizados según tus análisis</p>
+        </div>
+      </div>
+      <div class="plan-grid">
+        <div class="card">
+          <div class="card-title">Configurá tu plan</div>
+          <label class="p-label">Objetivo principal</label>
+          <select id="p-obj" class="p-sel">
+            <option value="">Seleccioná...</option>
+            <option value="peso">Bajar de peso</option>
+            <option value="musculo">Ganar músculo</option>
+            <option value="salud">Mejorar la salud general</option>
+            <option value="energia">Aumentar la energía</option>
+            <option value="colesterol">Controlar el colesterol</option>
+          </select>
+          <label class="p-label">Nivel de actividad física</label>
+          <select id="p-act" class="p-sel">
+            <option value="">Seleccioná...</option>
+            <option value="sedentario">Sedentario (sin ejercicio)</option>
+            <option value="leve">Leve (1–2 veces/semana)</option>
+            <option value="moderado">Moderado (3–4 veces/semana)</option>
+            <option value="intenso">Intenso (5+ veces/semana)</option>
+          </select>
+          <label class="p-label">Restricciones alimentarias</label>
+          <select id="p-rest" class="p-sel">
+            <option value="ninguna">Sin restricciones</option>
+            <option value="vegetariano">Vegetariano</option>
+            <option value="vegano">Vegano</option>
+            <option value="celiaco">Sin gluten (celíaco)</option>
+            <option value="lactosa">Intolerante a la lactosa</option>
+          </select>
+          <label class="p-label">¿Algo más que debamos saber?</label>
+          <textarea id="p-notas" class="p-ta" placeholder="Ej: tengo rodilla lastimada, trabajo nocturno..."></textarea>
+          <button class="btn-act" style="width:100%;margin-top:20px" onclick="genPlan()">Generar mi plan personalizado</button>
+        </div>
+        <div>
+          <div id="plan-empty" style="display:flex;align-items:center;justify-content:center;padding:60px 20px;text-align:center;color:var(--text2)">
+            <div><div style="font-size:48px;margin-bottom:16px">🥗</div><div style="font-size:16px;font-weight:600;margin-bottom:8px">Tu plan aparecerá acá</div><div style="font-size:14px">Completá el formulario para generar tu plan personalizado</div></div>
+          </div>
+          <div id="plan-result" class="plan-result">
+            <div class="card" style="margin-bottom:20px">
+              <div style="background:linear-gradient(135deg,#1B4F72,#2E86AB);border-radius:12px;padding:20px;color:white;margin:-24px -24px 20px">
+                <div style="font-size:11px;font-weight:600;opacity:.65;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">Tu plan personalizado</div>
+                <div style="font-size:20px;font-weight:700" id="p-ttl">—</div>
+                <div style="font-size:13px;opacity:.7;margin-top:4px" id="p-sub">Basado en tus análisis más recientes</div>
+              </div>
+              <div class="plan-sec">
+                <div class="plan-sec-title">🩺 Consideraciones de salud</div>
+                <div id="p-health" style="font-size:14px;color:#4A5568;line-height:1.6"></div>
+              </div>
+            </div>
+            <div class="card" style="margin-bottom:20px">
+              <div class="card-title">🥗 Plan de alimentación</div>
+              <div id="p-dieta"></div>
+            </div>
+            <div class="card">
+              <div class="card-title">💪 Plan de entrenamiento</div>
+              <div id="p-tren"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-ov" id="modal-ov" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <div class="modal-ico" id="m-ico">✅</div>
+    <div class="modal-ttl" id="m-ttl"></div>
+    <div class="modal-txt" id="m-txt"></div>
+    <div class="modal-acts">
+      <button class="btn-sec" onclick="closeModal()">Cerrar</button>
+      <button class="btn-act" id="m-confirm" onclick="closeModal()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────
+const PAC = { nombre:'Martín', dni:'30456789', password:'biocon', medico:'Dr. Carlos Menéndez' };
+
+const DESC = {
+  'Glucosa': { d:'Mide el nivel de azúcar en sangre. Es la principal fuente de energía del organismo.', c:'Valores entre 100 y 125 mg/dL se consideran prediabetes. Por encima de 126 mg/dL en dos mediciones se diagnostica diabetes.' },
+  'Colesterol Total': { d:'Suma de todas las fracciones de colesterol en sangre, incluyendo HDL y LDL.', c:'Un colesterol elevado aumenta el riesgo cardiovascular. La dieta y el ejercicio son clave.' },
+  'Colesterol HDL': { d:'El "colesterol bueno". Transporta el colesterol hacia el hígado para su eliminación.', c:'Niveles altos de HDL protegen el corazón. El ejercicio regular lo incrementa.' },
+  'Colesterol LDL': { d:'El "colesterol malo". Puede acumularse en las paredes de las arterias formando placas.', c:'Mantener el LDL bajo reduce el riesgo de infarto y ACV.' },
+  'Triglicéridos': { d:'Tipo de grasa que el cuerpo usa como energía. El exceso se almacena en tejido adiposo.', c:'Valores altos se asocian con dieta rica en azúcares y grasas, sedentarismo y alcohol.' },
+  'Hemoglobina': { d:'Proteína en los glóbulos rojos que transporta oxígeno a todos los tejidos.', c:'Valores bajos indican posible anemia. Valores altos pueden asociarse a deshidratación.' },
+  'Hematocrito': { d:'Porcentaje del volumen sanguíneo ocupado por los glóbulos rojos.', c:'Útil para detectar anemia o policitemia.' },
+  'Leucocitos': { d:'Glóbulos blancos que defienden al organismo de infecciones.', c:'Valores bajos sugieren inmunosupresión. Valores muy altos sugieren infección activa.' },
+  'Plaquetas': { d:'Pequeñas células sanguíneas que participan en la coagulación.', c:'Plaquetas bajas pueden causar sangrado fácil. Valores muy altos aumentan riesgo de trombosis.' },
+  'Urea': { d:'Producto de desecho del metabolismo de proteínas, eliminado por los riñones.', c:'Valores elevados pueden indicar disfunción renal o dieta muy alta en proteínas.' },
+  'Creatinina': { d:'Marcador de la función renal. Los riñones sanos la filtran eficientemente.', c:'Valores elevados pueden indicar enfermedad renal crónica o aguda.' },
+  'VIH': { d:'Detección de anticuerpos y antígenos del Virus de Inmunodeficiencia Humana (4ta generación).', c:'Un resultado no reactivo indica ausencia de infección. Se recomienda repetir anualmente si hay conductas de riesgo.' },
+  'Hepatitis B (HBsAg)': { d:'Detecta el antígeno de superficie del virus de Hepatitis B, marcador de infección activa.', c:'Un resultado no reactivo indica que no hay infección activa. Verificá tu estado de vacunación.' },
+  'Hepatitis C': { d:'Detecta anticuerpos contra el virus de Hepatitis C (Anti-HCV).', c:'Un resultado no reactivo indica ausencia de exposición al virus.' },
+  'Sífilis (VDRL)': { d:'Prueba de detección de sífilis mediante la técnica VDRL.', c:'Un resultado no reactivo indica ausencia de sífilis activa.' },
+};
+
+const ESTUDIOS = [
+  { id:1, fecha:'2024-03-12', protocolo:'P-2024-0847', paquete:'Perfil General + ITS', resultados:[
+    {nombre:'Glucosa',valor:92,unidad:'mg/dL',refMin:70,refMax:100,estado:'normal'},
+    {nombre:'Colesterol Total',valor:215,unidad:'mg/dL',refMin:null,refMax:200,estado:'alto'},
+    {nombre:'Colesterol HDL',valor:45,unidad:'mg/dL',refMin:40,refMax:null,estado:'normal'},
+    {nombre:'Colesterol LDL',valor:138,unidad:'mg/dL',refMin:null,refMax:130,estado:'observacion'},
+    {nombre:'Triglicéridos',valor:168,unidad:'mg/dL',refMin:null,refMax:150,estado:'alto'},
+    {nombre:'Hemoglobina',valor:14.2,unidad:'g/dL',refMin:13.0,refMax:17.0,estado:'normal'},
+    {nombre:'Hematocrito',valor:42,unidad:'%',refMin:39,refMax:50,estado:'normal'},
+    {nombre:'Leucocitos',valor:7200,unidad:'/μL',refMin:4500,refMax:11000,estado:'normal'},
+    {nombre:'Plaquetas',valor:245000,unidad:'/μL',refMin:150000,refMax:400000,estado:'normal'},
+    {nombre:'Urea',valor:35,unidad:'mg/dL',refMin:10,refMax:50,estado:'normal'},
+    {nombre:'Creatinina',valor:0.9,unidad:'mg/dL',refMin:0.7,refMax:1.3,estado:'normal'},
+    {nombre:'VIH',valor:'No reactivo',unidad:'',refMin:null,refMax:null,estado:'normal',tipo:'cual'},
+    {nombre:'Hepatitis B (HBsAg)',valor:'No reactivo',unidad:'',refMin:null,refMax:null,estado:'normal',tipo:'cual'},
+    {nombre:'Hepatitis C',valor:'No reactivo',unidad:'',refMin:null,refMax:null,estado:'normal',tipo:'cual'},
+    {nombre:'Sífilis (VDRL)',valor:'No reactivo',unidad:'',refMin:null,refMax:null,estado:'normal',tipo:'cual'},
+  ]},
+  { id:2, fecha:'2024-09-05', protocolo:'P-2024-2341', paquete:'Perfil General', resultados:[
+    {nombre:'Glucosa',valor:98,unidad:'mg/dL',refMin:70,refMax:100,estado:'normal'},
+    {nombre:'Colesterol Total',valor:198,unidad:'mg/dL',refMin:null,refMax:200,estado:'normal'},
+    {nombre:'Colesterol HDL',valor:48,unidad:'mg/dL',refMin:40,refMax:null,estado:'normal'},
+    {nombre:'Colesterol LDL',valor:122,unidad:'mg/dL',refMin:null,refMax:130,estado:'normal'},
+    {nombre:'Triglicéridos',valor:142,unidad:'mg/dL',refMin:null,refMax:150,estado:'normal'},
+    {nombre:'Hemoglobina',valor:13.8,unidad:'g/dL',refMin:13.0,refMax:17.0,estado:'normal'},
+    {nombre:'Hematocrito',valor:41,unidad:'%',refMin:39,refMax:50,estado:'normal'},
+    {nombre:'Leucocitos',valor:6800,unidad:'/μL',refMin:4500,refMax:11000,estado:'normal'},
+    {nombre:'Plaquetas',valor:260000,unidad:'/μL',refMin:150000,refMax:400000,estado:'normal'},
+    {nombre:'Urea',valor:38,unidad:'mg/dL',refMin:10,refMax:50,estado:'normal'},
+    {nombre:'Creatinina',valor:1.0,unidad:'mg/dL',refMin:0.7,refMax:1.3,estado:'normal'},
+  ]},
+  { id:3, fecha:'2026-02-18', protocolo:'P-2026-0112', paquete:'Hemograma + Perfil Lipídico', resultados:[
+    {nombre:'Glucosa',valor:104,unidad:'mg/dL',refMin:70,refMax:100,estado:'alto'},
+    {nombre:'Colesterol Total',valor:182,unidad:'mg/dL',refMin:null,refMax:200,estado:'normal'},
+    {nombre:'Colesterol HDL',valor:52,unidad:'mg/dL',refMin:40,refMax:null,estado:'normal'},
+    {nombre:'Colesterol LDL',valor:108,unidad:'mg/dL',refMin:null,refMax:130,estado:'normal'},
+    {nombre:'Triglicéridos',valor:128,unidad:'mg/dL',refMin:null,refMax:150,estado:'normal'},
+    {nombre:'Hemoglobina',valor:14.5,unidad:'g/dL',refMin:13.0,refMax:17.0,estado:'normal'},
+    {nombre:'Hematocrito',valor:43,unidad:'%',refMin:39,refMax:50,estado:'normal'},
+    {nombre:'Leucocitos',valor:7500,unidad:'/μL',refMin:4500,refMax:11000,estado:'normal'},
+    {nombre:'Plaquetas',valor:238000,unidad:'/μL',refMin:150000,refMax:400000,estado:'normal'},
+  ]},
+];
+
+const PACKS = [
+  {id:1,nombre:'Perfil ITS',desc:'Infecciones de transmisión sexual. Estudio completo, rápido y confidencial.',popular:true,precio:'Desde $8.500',dur:'Resultados en el día',items:['VIH (4ta generación)','Hepatitis B (HBsAg)','Hepatitis C (Anti-HCV)','Sífilis (VDRL + FTA-ABS)'],ico:'🔬'},
+  {id:2,nombre:'Perfil General',desc:'Control integral de salud con los principales parámetros bioquímicos.',popular:false,precio:'Desde $6.200',dur:'Resultados en el día',items:['Hemograma completo','Glucosa en ayunas','Urea y creatinina','Colesterol total','Triglicéridos'],ico:'🩺'},
+  {id:3,nombre:'Perfil Lipídico',desc:'Evaluación completa del colesterol y las grasas en sangre.',popular:false,precio:'Desde $4.800',dur:'Resultados en el día',items:['Colesterol total','Colesterol HDL','Colesterol LDL','Triglicéridos','VLDL'],ico:'❤️'},
+  {id:4,nombre:'Perfil Hormonal Masculino',desc:'Control de hormonas clave para la salud y el bienestar masculino.',popular:false,precio:'Desde $9.100',dur:'Resultados en 24–48 h',items:['Testosterona total','FSH y LH','Prolactina','TSH y T4 libre'],ico:'⚡'},
+  {id:5,nombre:'Control Diabético',desc:'Seguimiento completo para diabetes, prediabetes o riesgo metabólico.',popular:false,precio:'Desde $5.400',dur:'Resultados en el día',items:['Glucosa en ayunas','Hemoglobina glicosilada (HbA1c)','Insulina basal','Microalbuminuria'],ico:'📊'},
+  {id:6,nombre:'Perfil Hepático',desc:'Evaluación completa de la función del hígado y detección de daño hepático.',popular:false,precio:'Desde $4.200',dur:'Resultados en el día',items:['TGO (AST) y TGP (ALT)','Fosfatasa alcalina (FAL)','GGT','Bilirrubina total y directa'],ico:'🫁'},
+];
+
+// ── STATE ─────────────────────────────────────────────────────
+let evoChart = null;
+let chatLog = [];
+let pendingPack = null;
+
+// ── AUTH ──────────────────────────────────────────────────────
+function doLogin() {
+  const dni = document.getElementById('inp-dni').value.trim();
+  const pass = document.getElementById('inp-pass').value.trim();
+  const err = document.getElementById('login-err');
+  if (dni === PAC.dni && pass === PAC.password) {
+    err.textContent = '';
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').classList.add('on');
+    initApp();
+  } else {
+    err.textContent = 'DNI o contraseña incorrectos.';
+  }
+}
+document.getElementById('inp-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('inp-dni').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+function doLogout() {
+  document.getElementById('app').classList.remove('on');
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('inp-dni').value = '';
+  document.getElementById('inp-pass').value = '';
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+function initApp() {
+  const h = new Date().getHours();
+  const sal = h<12?'Buenos días':h<19?'Buenas tardes':'Buenas noches';
+  document.getElementById('greeting').textContent = `${sal}, ${PAC.nombre}`;
+  renderKPIs();
+  renderHist();
+  renderStudies();
+  renderPacks();
+  initChat();
+  go('dashboard');
+}
+
+// ── NAVIGATION ────────────────────────────────────────────────
+function go(view, param) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('on'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (view === 'detalle') {
+    document.getElementById('view-detalle').classList.add('on');
+    document.getElementById('nav-analisis').classList.add('active');
+    renderDetalle(param);
+  } else {
+    document.getElementById('view-' + view)?.classList.add('on');
+    document.getElementById('nav-' + view)?.classList.add('active');
+  }
+  if (view === 'analisis') setTimeout(() => renderEvoChart('Glucosa'), 50);
+  document.getElementById('main').scrollTo(0, 0);
+}
+
+// ── HELPERS ───────────────────────────────────────────────────
+function fDate(str, opts) {
+  return new Date(str + 'T12:00:00').toLocaleDateString('es-AR', opts || { day:'numeric', month:'long', year:'numeric' });
+}
+function badgeHtml(est) {
+  const map = { normal:'b-ok', observacion:'b-warn', alto:'b-err' };
+  const lbl = { normal:'Normal', observacion:'En observación', alto:'Alterado' };
+  return `<span class="badge ${map[est]||'b-ok'}">${lbl[est]||'Normal'}</span>`;
+}
+function alerts(e) { return e.resultados.filter(r => r.estado !== 'normal' && r.tipo !== 'cual'); }
+
+// ── DASHBOARD ─────────────────────────────────────────────────
+function renderKPIs() {
+  const last = ESTUDIOS[ESTUDIOS.length - 1];
+  const names = ['Glucosa','Colesterol Total','Triglicéridos','Hemoglobina'];
+  const lowerBetter = ['Glucosa','Colesterol Total','Triglicéridos','Colesterol LDL'];
+  document.getElementById('kpi-grid').innerHTML = names.map(nm => {
+    const r = last.resultados.find(x => x.nombre === nm); if (!r) return '';
+    let prev = null;
+    for (let i = ESTUDIOS.length-2; i >= 0; i--) {
+      prev = ESTUDIOS[i].resultados.find(x => x.nombre === nm);
+      if (prev) break;
+    }
+    const diff = prev ? r.valor - prev.valor : null;
+    const better = diff !== null && (lowerBetter.includes(nm) ? diff < 0 : diff > 0);
+    const diffColor = diff === null ? '' : Math.abs(diff) < 0.5 ? 'var(--text2)' : better ? 'var(--ok)' : 'var(--err)';
+    const refLbl = r.refMin != null && r.refMax != null ? `${r.refMin}–${r.refMax}` : r.refMax != null ? `< ${r.refMax}` : `> ${r.refMin}`;
+    return `<div class="kpi-card">
+      <div class="kpi-hdr"><span class="kpi-name">${nm}</span>${badgeHtml(r.estado)}</div>
+      <div class="kpi-val">${typeof r.valor==='number'?r.valor.toLocaleString('es-AR'):r.valor}<span class="kpi-unit"> ${r.unidad}</span></div>
+      ${diff!==null?`<div class="kpi-diff" style="color:${diffColor}">${diff>0?'▲':'▼'} ${Math.abs(diff).toFixed(1)} vs anterior</div>`:''}
+      <div class="kpi-ref">Ref: ${refLbl} ${r.unidad}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderHist() {
+  document.getElementById('hist-list').innerHTML = [...ESTUDIOS].reverse().map(e => {
+    const al = alerts(e);
+    const st = al.length===0 ? `<span class="badge b-ok">Todo normal</span>` : `<span class="badge b-err">${al.length} alerta${al.length>1?'s':''}</span>`;
+    return `<div class="hist-item" onclick="go('detalle',${e.id})">
+      <div class="hist-dot"></div>
+      <div style="flex:1"><div class="hist-pkg">${e.paquete}</div><div class="hist-date">${fDate(e.fecha)} · #${e.protocolo}</div></div>
+      ${st}
+    </div>`;
+  }).join('');
+}
+
+// ── ANALISIS LIST ─────────────────────────────────────────────
+function renderStudies() {
+  document.getElementById('studies-list').innerHTML = [...ESTUDIOS].reverse().map(e => {
+    const d = new Date(e.fecha + 'T12:00:00');
+    const day = d.getDate().toString().padStart(2,'0');
+    const mon = d.toLocaleDateString('es-AR',{month:'short'}).toUpperCase().replace('.','');
+    const yr = d.getFullYear();
+    const al = alerts(e);
+    const tags = al.length > 0
+      ? al.map(a => `<span class="badge b-${a.estado}" style="font-size:11px">${a.nombre}</span>`).join('')
+      : `<span class="badge b-ok">Todo normal</span>`;
+    return `<div class="study-card" onclick="go('detalle',${e.id})">
+      <div class="study-date"><div class="s-day">${day}</div><div class="s-mon">${mon}</div><div class="s-yr">${yr}</div></div>
+      <div class="s-div"></div>
+      <div class="s-info">
+        <div class="s-name">${e.paquete}</div>
+        <div class="s-proto">Protocolo #${e.protocolo} · ${e.resultados.length} valores</div>
+        <div class="s-tags">${tags}</div>
+      </div>
+      <button class="btn-sec" onclick="event.stopPropagation();go('detalle',${e.id})">Ver detalle →</button>
+    </div>`;
+  }).join('');
+}
+
+// ── EVOLUTION CHART ───────────────────────────────────────────
+function renderEvoChart(metric) {
+  const canvas = document.getElementById('evo-chart');
+  if (!canvas) return;
+  if (evoChart) { evoChart.destroy(); evoChart = null; }
+  const labels=[], vals=[];
+  let refMin=null, refMax=null, unit='';
+  ESTUDIOS.forEach(e => {
+    const r = e.resultados.find(x => x.nombre === metric);
+    if (r && typeof r.valor === 'number') {
+      labels.push(fDate(e.fecha, {day:'2-digit',month:'short',year:'numeric'}));
+      vals.push(r.valor);
+      if (r.refMin != null) refMin = r.refMin;
+      if (r.refMax != null) refMax = r.refMax;
+      if (r.unidad) unit = r.unidad;
+    }
+  });
+  const ptColors = vals.map((v, i) => {
+    const idx = ESTUDIOS.findIndex(e => e.resultados.find(r => r.nombre===metric && r.valor===v));
+    const r = idx >= 0 ? ESTUDIOS[idx].resultados.find(r => r.nombre===metric) : null;
+    return r?.estado==='alto' ? '#DC2626' : r?.estado==='observacion' ? '#D97706' : '#16A34A';
+  });
+  const datasets = [{
+    label: metric, data: vals, borderColor:'#2E86AB', backgroundColor:'rgba(46,134,171,.08)',
+    borderWidth:2.5, pointBackgroundColor: ptColors, pointRadius:6, pointHoverRadius:8, tension:.3, fill:true,
+  }];
+  if (refMax != null) datasets.push({ label:`Máx. ref. (${refMax} ${unit})`, data:Array(labels.length).fill(refMax), borderColor:'#FCA5A5', borderDash:[5,5], borderWidth:1.5, pointRadius:0, fill:false });
+  if (refMin != null) datasets.push({ label:`Mín. ref. (${refMin} ${unit})`, data:Array(labels.length).fill(refMin), borderColor:'#BBF7D0', borderDash:[5,5], borderWidth:1.5, pointRadius:0, fill:false });
+  evoChart = new Chart(canvas, {
+    type:'line', data:{ labels, datasets },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ font:{family:'Inter',size:12}, color:'#718096' }},
+        tooltip:{ callbacks:{ label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y} ${unit}` }}},
+      scales:{ x:{ grid:{color:'#F0F4F8'}, ticks:{font:{family:'Inter',size:12},color:'#718096'}},
+               y:{ grid:{color:'#F0F4F8'}, ticks:{font:{family:'Inter',size:12},color:'#718096'}}}}
+  });
+}
+function updateChart() { renderEvoChart(document.getElementById('metric-sel').value); }
+
+// ── DETALLE ───────────────────────────────────────────────────
+function renderDetalle(id) {
+  const e = ESTUDIOS.find(x => x.id === id); if (!e) return;
+  const num = e.resultados.filter(r => r.tipo !== 'cual');
+  const qual = e.resultados.filter(r => r.tipo === 'cual');
+
+  const numHTML = num.map(r => {
+    const desc = DESC[r.nombre];
+    let barHTML = '';
+    if (r.refMin != null || r.refMax != null) {
+      const lo = r.refMin ?? r.refMax * 0.5;
+      const hi = r.refMax ?? r.refMin * 1.8;
+      const range = hi - lo;
+      const buf = 0.15;
+      const vLo = lo - range*buf, vHi = hi + range*buf, vR = vHi - vLo;
+      const rL = Math.max(0, (lo-vLo)/vR*100);
+      const rW = Math.min(100, (hi-lo)/vR*100);
+      const mL = Math.max(2, Math.min(98, (r.valor-vLo)/vR*100));
+      const mc = r.estado==='alto'?'#DC2626':r.estado==='observacion'?'#D97706':'#16A34A';
+      barHTML = `<div class="ref-bar"><div class="ref-range" style="left:${rL}%;width:${rW}%"></div><div class="ref-marker" style="left:${mL}%;background:${mc}"></div></div>
+      <div class="ref-labels"><span>${r.refMin??''}</span><span>Rango de referencia</span><span>${r.refMax??''}</span></div>`;
+    }
+    return `<div class="res-card">
+      <div class="res-hdr">
+        <div class="res-name">${r.nombre}</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="res-val-box"><span class="res-val">${typeof r.valor==='number'?r.valor.toLocaleString('es-AR'):r.valor}</span><span class="res-unit"> ${r.unidad}</span></div>
+          ${badgeHtml(r.estado)}
+        </div>
+      </div>
+      ${barHTML}
+      ${desc?`<div class="res-desc">${desc.d}${desc.c?`<br><br><strong>A tener en cuenta:</strong> ${desc.c}`:''}</div>`:''}
+    </div>`;
+  }).join('');
+
+  const qualHTML = qual.length > 0 ? `<div style="margin-top:22px">
+    <h3 style="font-size:15px;font-weight:700;margin-bottom:14px">ITS — Estudios cualitativos</h3>
+    ${qual.map(r => {
+      const desc = DESC[r.nombre];
+      return `<div class="res-card" style="margin-bottom:10px">
+        <div class="res-qual">
+          <div><div class="res-name">${r.nombre}</div>${desc?`<div style="font-size:12px;color:var(--text2);margin-top:2px">${desc.d}</div>`:''}</div>
+          <span class="badge b-ok" style="font-size:13px;padding:6px 14px">✓ ${r.valor}</span>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>` : '';
+
+  document.getElementById('detalle-content').innerHTML = `
+    <div class="page-hdr">
+      <div><h1 class="page-title">${e.paquete}</h1><p class="page-sub">${fDate(e.fecha)} · Protocolo #${e.protocolo} · ${PAC.medico}</p></div>
+      <button class="btn-act" onclick="toast('📄 La descarga del PDF estará disponible próximamente.')">↓ Descargar PDF</button>
+    </div>
+    ${numHTML}${qualHTML}`;
+}
+
+// ── CHAT ──────────────────────────────────────────────────────
+function initChat() {
+  chatLog = [];
+  document.getElementById('chat-msgs').innerHTML = '';
+  botMsg(`¡Hola, ${PAC.nombre}! Soy el asistente de Biocon. Podés consultarme sobre tus resultados de análisis, qué significa cada valor, cuándo repetir estudios y más. ¿En qué puedo ayudarte?`);
+}
+
+function botMsg(txt) {
+  const t = new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+  chatLog.push({role:'bot', txt, t});
+  renderChat();
+}
+function userMsg(txt) {
+  const t = new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+  chatLog.push({role:'user', txt, t});
+  renderChat();
+}
+function renderChat() {
+  const c = document.getElementById('chat-msgs');
+  c.innerHTML = chatLog.map(m => `
+    <div class="msg ${m.role}">
+      <div class="msg-av">${m.role==='bot'?'🤖':PAC.nombre[0]}</div>
+      <div><div class="msg-bbl">${m.txt}</div><div class="msg-time">${m.t}</div></div>
+    </div>`).join('');
+  c.scrollTop = c.scrollHeight;
+}
+function sendChat() {
+  const inp = document.getElementById('chat-inp');
+  const txt = inp.value.trim(); if (!txt) return;
+  userMsg(txt); inp.value = '';
+  document.getElementById('chat-sugg').style.display = 'none';
+  // typing indicator
+  const c = document.getElementById('chat-msgs');
+  const tid = 'typ' + Date.now();
+  c.innerHTML += `<div class="msg bot" id="${tid}"><div class="msg-av">🤖</div><div class="msg-bbl"><div class="typing-dots"><div class="t-dot"></div><div class="t-dot"></div><div class="t-dot"></div></div></div></div>`;
+  c.scrollTop = c.scrollHeight;
+  setTimeout(() => { document.getElementById(tid)?.remove(); botMsg(chatReply(txt.toLowerCase())); }, 1100 + Math.random()*600);
+}
+function sendSugg(txt) { document.getElementById('chat-inp').value = txt; sendChat(); }
+
+function chatReply(t) {
+  if (t.includes('glucosa') || t.includes('azúcar') || t.includes('azucar'))
+    return `Tu último valor de glucosa fue <strong>104 mg/dL</strong> (febrero 2026), levemente por encima del rango normal (70–100 mg/dL). Esto puede indicar glucemia en ayunas alterada. Se recomienda consultar con tu médico, reducir el consumo de azúcares simples y harinas refinadas, y hacer actividad física regular.`;
+  if (t.includes('colesterol'))
+    return `En tu análisis más reciente (feb. 2026), tu <strong>Colesterol Total fue 182 mg/dL</strong> — dentro del rango normal. Es una mejora notable respecto a mar. 2024 (215 mg/dL). Tu LDL también está bien controlado (108 mg/dL). El plan alimentario y la actividad física están dando resultados.`;
+  if (t.includes('triglicérid') || t.includes('triglicerid'))
+    return `Tus triglicéridos actuales son <strong>128 mg/dL</strong>, dentro del rango normal (< 150 mg/dL). En mar. 2024 estaban en 168 mg/dL. Mejora significativa. Para mantenerlos bajos: evitá azúcares simples y alcohol, y mantenés la actividad física.`;
+  if (t.includes('its') || t.includes('vih') || t.includes('sífilis') || t.includes('hepatitis'))
+    return `En tu análisis de mar. 2024 todos los resultados cualitativos fueron <strong>No reactivo</strong>: VIH, Hepatitis B, Hepatitis C y Sífilis. Si desde entonces hubo conductas de riesgo, es recomendable repetir el estudio. ¿Querés ver los packs disponibles?`;
+  if (t.includes('dieta') || t.includes('alimentaci') || t.includes('comer'))
+    return `Basándome en tus análisis (glucosa levemente elevada, lipídico controlado), te recomendaría:<br><br>• Reducir azúcares simples y harinas refinadas<br>• Aumentar verduras y fibra<br>• Priorizar proteínas magras<br>• Limitar grasas saturadas<br><br>Para un plan completo, visitá la sección <strong>Mi plan de salud</strong>.`;
+  if (t.includes('ejercicio') || t.includes('entrenamiento') || t.includes('actividad'))
+    return `Para tu perfil se recomienda:<br><br>• <strong>Cardio moderado</strong>: 30–45 min, 4–5 veces/semana<br>• <strong>Fuerza</strong>: 2–3 veces/semana para mejorar la sensibilidad a la insulina<br><br>El ejercicio post-comida (caminata 15 min) ayuda especialmente a controlar la glucosa.`;
+  if (t.includes('repetir') || t.includes('cuándo') || t.includes('cuando') || t.includes('próximo'))
+    return `Dado que tu glucosa está levemente elevada, sería recomendable repetir un análisis de <strong>glucosa y perfil lipídico en 3–6 meses</strong>. También sería un buen momento para hacer un perfil general completo, ya que tu último fue hace más de un año.`;
+  if (t.includes('turno') || t.includes('sacar') || t.includes('pedir'))
+    return `Para sacar turno en Biocon podés llamar al laboratorio o visitarnos en Córdoba. También podés explorar la sección <strong>Solicitar análisis</strong> de este portal para ver los packs disponibles.`;
+  if (t.includes('hemoglobina') || t.includes('anemia') || t.includes('glóbulo'))
+    return `Tu hemoglobina en el último estudio fue <strong>14.5 g/dL</strong>, dentro del rango normal (13–17 g/dL). Leucocitos y plaquetas también normales. No hay indicios de anemia ni alteraciones en el hemograma.`;
+  if (t.includes('riñón') || t.includes('renal') || t.includes('creatinina') || t.includes('urea'))
+    return `La función renal está en perfecto estado. Creatinina: <strong>0.9–1.0 mg/dL</strong>. Urea: <strong>35–38 mg/dL</strong>. Ambos dentro de los rangos normales en todos tus estudios.`;
+  return `Entiendo tu consulta. Soy un asistente orientativo basado en tus análisis registrados. Para consultas médicas específicas, siempre te recomendamos hablar con tu médico (${PAC.medico}). ¿Hay algún valor puntual sobre el que quieras más información?`;
+}
+
+// ── PACKS ─────────────────────────────────────────────────────
+function renderPacks() {
+  document.getElementById('packs-grid').innerHTML = PACKS.map(p => `
+    <div class="pack-card">
+      ${p.popular ? '<div class="pack-pop">Más solicitado</div>' : ''}
+      <div class="pack-ico">${p.ico}</div>
+      <div class="pack-name">${p.nombre}</div>
+      <div class="pack-desc">${p.desc}</div>
+      <ul class="pack-items">${p.items.map(i => `<li>${i}</li>`).join('')}</ul>
+      <div class="pack-foot">
+        <div><div class="pack-price">${p.precio}</div><div class="pack-dur">${p.dur}</div></div>
+        <button class="btn-pack" onclick="solicitarPack(${p.id})">Solicitar</button>
+      </div>
+    </div>`).join('');
+}
+
+function solicitarPack(id) {
+  const p = PACKS.find(x => x.id === id); if (!p) return;
+  pendingPack = id;
+  document.getElementById('m-ico').textContent = p.ico;
+  document.getElementById('m-ttl').textContent = `Solicitar ${p.nombre}`;
+  document.getElementById('m-txt').innerHTML = `Vas a solicitar el pack <strong>${p.nombre}</strong>.<br><br>Precio: <strong>${p.precio}</strong> · ${p.dur}<br><br>Un representante de Biocon se comunicará con vos para confirmar el turno.`;
+  document.getElementById('m-confirm').textContent = 'Confirmar solicitud';
+  document.getElementById('m-confirm').onclick = () => { closeModal(); const pk = PACKS.find(x=>x.id===pendingPack); toast(`✅ Solicitud enviada para ${pk?.nombre}. Te contactaremos a la brevedad.`); };
+  document.getElementById('modal-ov').classList.add('on');
+}
+function closeModal() { document.getElementById('modal-ov').classList.remove('on'); }
+
+// ── PLAN ──────────────────────────────────────────────────────
+function genPlan() {
+  const obj = document.getElementById('p-obj').value;
+  const act = document.getElementById('p-act').value;
+  if (!obj || !act) { toast('⚠️ Por favor completá el objetivo y el nivel de actividad.'); return; }
+
+  const OBJS = { peso:'Pérdida de peso', musculo:'Ganancia muscular', salud:'Salud general', energia:'Energía y vitalidad', colesterol:'Control del colesterol' };
+  const ACTS = { sedentario:'sedentario', leve:'con actividad leve', moderado:'con actividad moderada', intenso:'con actividad intensa' };
+  const rest = document.getElementById('p-rest').value;
+
+  document.getElementById('p-ttl').textContent = `Plan de ${OBJS[obj]||obj}`;
+  document.getElementById('p-sub').textContent = `Perfil ${ACTS[act]} · ${rest !== 'ninguna' ? rest : 'Sin restricciones'}`;
+
+  document.getElementById('p-health').innerHTML = `Basado en tu último análisis (18 de febrero de 2026):
+    <ul style="margin-top:10px;padding-left:20px;display:flex;flex-direction:column;gap:6px">
+      <li>Glucosa: <strong>104 mg/dL</strong> — levemente elevada. El plan incorpora estrategias para controlarla.</li>
+      <li>Perfil lipídico: <strong>dentro de rangos normales</strong>. Colesterol mejoró significativamente desde 2024.</li>
+      <li>Hemograma: <strong>valores normales</strong>. Buena capacidad aeróbica de base.</li>
+    </ul>`;
+
+  const dietas = {
+    peso: `<div class="plan-sec"><div class="plan-sec-title">🌅 Desayuno</div><div class="plan-row"><span class="plan-lbl">Opción A</span>Yogur descremado con granola sin azúcar + 1 fruta</div><div class="plan-row"><span class="plan-lbl">Opción B</span>Tostadas integrales con huevo revuelto + café sin azúcar</div></div><div class="plan-sec"><div class="plan-sec-title">☀️ Almuerzo</div><div class="plan-row"><span class="plan-lbl">Base</span>200g proteína magra (pollo, pescado o legumbres) + vegetales al vapor</div><div class="plan-row"><span class="plan-lbl">Hidratos</span>Arroz integral o batata (½ taza cocida)</div></div><div class="plan-sec"><div class="plan-sec-title">🌙 Cena</div><div class="plan-row"><span class="plan-lbl">Opción</span>Ensalada grande con proteína (atún, huevo o queso descremado)</div><div class="plan-row"><span class="plan-lbl">Evitar</span>Hidratos simples y frituras en la noche</div></div><div class="plan-sec" style="margin-bottom:0"><div class="plan-sec-title" style="color:var(--err)">⚠️ Por tu glucosa elevada</div><div class="plan-row"><span class="plan-lbl">Evitar</span>Azúcares simples, jugos industriales, harinas blancas</div><div class="plan-row"><span class="plan-lbl">Incorporar</span>Canela, avena, legumbres, vegetales de hoja verde</div></div>`,
+    musculo: `<div class="plan-sec"><div class="plan-sec-title">📊 Macros objetivo</div><div class="plan-row"><span class="plan-lbl">Proteína</span>1.8–2.2 g/kg de peso (≈ 130–160g/día estimado)</div><div class="plan-row"><span class="plan-lbl">Hidratos</span>Complejos y moderados. Mayor cantidad post-entrenamiento.</div><div class="plan-row"><span class="plan-lbl">Grasas</span>Saludables: aceite de oliva, palta, frutos secos</div></div><div class="plan-sec"><div class="plan-sec-title">🍗 Fuentes de proteína</div><div class="plan-row"><span class="plan-lbl">Animales</span>Pollo, pavo, atún, claras de huevo, yogur griego</div><div class="plan-row"><span class="plan-lbl">Vegetales</span>Lentejas, garbanzos, tofu, edamame</div></div>`,
+    salud: `<div class="plan-sec"><div class="plan-sec-title">🥦 Principios generales</div><div class="plan-row"><span class="plan-lbl">Verduras</span>Mínimo 5 porciones al día, variadas y de colores</div><div class="plan-row"><span class="plan-lbl">Proteínas</span>Alternando animales magros y vegetales</div><div class="plan-row"><span class="plan-lbl">Grasas</span>Priorizar omega-3 (pescado, lino, chía)</div><div class="plan-row"><span class="plan-lbl">Hidratación</span>2–2.5 litros de agua por día</div></div>`,
+    energia: `<div class="plan-sec"><div class="plan-sec-title">⚡ Alimentos energizantes</div><div class="plan-row"><span class="plan-lbl">Mañana</span>Avena con frutos rojos + té verde o café</div><div class="plan-row"><span class="plan-lbl">Hidratos lentos</span>Arroz integral, batata, quinoa</div><div class="plan-row"><span class="plan-lbl">Snacks</span>Frutos secos, banana, huevos duros</div></div>`,
+    colesterol: `<div class="plan-sec"><div class="plan-sec-title">❤️ Dieta cardioprotectora</div><div class="plan-row"><span class="plan-lbl">Omega-3</span>Pescado azul 2–3 veces/semana (salmón, atún, sardinas)</div><div class="plan-row"><span class="plan-lbl">Fibra</span>Avena, legumbres, frutas con cáscara (reduce LDL)</div><div class="plan-row"><span class="plan-lbl">Aceite</span>Oliva extra virgen como grasa principal</div><div class="plan-row"><span class="plan-lbl">Evitar</span>Grasas trans, frituras, embutidos, lácteos enteros en exceso</div></div>`,
+  };
+  document.getElementById('p-dieta').innerHTML = dietas[obj] || dietas.salud;
+
+  const dias = { sedentario:3, leve:3, moderado:4, intenso:5 }[act] || 3;
+  const cardio = act==='sedentario' ? '20–30 min de caminata rápida' : act==='intenso' ? '45–60 min cardio moderado-intenso' : '30–45 min cardio moderado';
+  const fuerza = obj==='musculo' ? '3 días dividido por grupos musculares' : '2 días cuerpo completo (25 min)';
+  const semana = [
+    {d:'Lunes', t: obj==='musculo'?'Tren superior (pecho, espalda, bíceps)':'Cardio 30 min + abdominales'},
+    {d:'Martes', t: obj==='musculo'?'Tren inferior (piernas, glúteos)':'Descanso activo (caminata, stretching)'},
+    {d:'Miércoles', t: obj==='musculo'?'Descanso activo':'Fuerza cuerpo completo 25 min'},
+    {d:'Jueves', t: obj==='musculo'?'Hombros, tríceps, core':'Descanso activo'},
+    {d:'Viernes', t: obj==='musculo'?'Cardio + movilidad':'Cardio 35 min + stretching'},
+    {d:'Sábado', t:'Actividad libre (deporte, natación, ciclismo)'},
+    {d:'Domingo', t:'Descanso'},
+  ];
+  document.getElementById('p-tren').innerHTML = `
+    <div class="plan-sec"><div class="plan-sec-title">📅 Frecuencia: ${dias} días activos/semana</div>
+      <div class="plan-row"><span class="plan-lbl">Cardio</span>${cardio}</div>
+      <div class="plan-row"><span class="plan-lbl">Fuerza</span>${fuerza}</div>
+      <div class="plan-row" style="color:var(--err)"><span class="plan-lbl" style="color:var(--err)">Glucosa</span>Caminata de 15–20 min post-comida ayuda a regular la glucosa.</div>
+    </div>
+    <div class="plan-sec"><div class="plan-sec-title">📋 Ejemplo de semana</div>${semana.slice(0,7).map(x=>`<div class="plan-row"><span class="plan-lbl">${x.d}</span>${x.t}</div>`).join('')}</div>
+    <div style="background:var(--ok-bg);border-radius:10px;padding:14px;font-size:13px;color:var(--ok)">✓ Este plan fue generado considerando tus análisis más recientes. Compartilo con tu médico o nutricionista para validarlo.</div>`;
+
+  document.getElementById('plan-result').classList.add('on');
+  document.getElementById('plan-empty').style.display = 'none';
+  toast('✅ Tu plan personalizado fue generado.');
+}
+
+// ── TOAST ─────────────────────────────────────────────────────
+let toastTmr = null;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('on');
+  if (toastTmr) clearTimeout(toastTmr);
+  toastTmr = setTimeout(() => el.classList.remove('on'), 3500);
+}
+</script>
+</body>
+</html>
